@@ -1,22 +1,6 @@
+use clap::{ArgAction, Command, arg, command, value_parser};
 use prettytable::{Table, row};
 use rusqlite::{Connection, Result, params};
-
-use std::io::{self, Write};
-
-fn read_line(prompt: &str) -> String {
-    print!("{prompt}");
-    io::stdout().flush().unwrap();
-
-    let mut input = String::new();
-    io::stdin().read_line(&mut input).unwrap();
-
-    input.trim().to_string()
-}
-
-fn clear_screen() {
-    print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
-    io::stdout().flush().unwrap();
-}
 
 #[derive(Debug)]
 struct Task {
@@ -61,10 +45,10 @@ fn print_tasks(tasks: Vec<Task>) {
     table.printstd();
 }
 
-fn add_task(conn: &Connection, task: Task) -> Result<usize> {
+fn add_task(conn: &Connection, name: &str, description: &str, is_done: bool) -> Result<usize> {
     conn.execute(
         "INSERT INTO todo_list (name, description, is_done) VALUES (?, ?, ?)",
-        params![task.name, task.description, task.is_done],
+        params![name, description, is_done],
     )
 }
 
@@ -93,14 +77,15 @@ fn mark_complete(conn: &Connection, task_id: usize, completed: bool) -> Result<u
     )
 }
 
-fn print_menu() {
-    println!();
-    println!("TODO-MENU");
-    println!("1. List Tasks");
-    println!("2. Add Task");
-    println!("3. Change 'completed' status");
-    println!("4. Delete Task");
-    println!("99. Exit");
+fn handle_error(result: Result<usize>) {
+    match result {
+        Ok(_) => {
+            println!("[+] Operation executed successfully");
+        }
+        Err(e) => {
+            eprintln!("[-] Operation Failed\nErr: {}", e);
+        }
+    }
 }
 
 fn main() -> Result<()> {
@@ -111,45 +96,82 @@ fn main() -> Result<()> {
         [],
     );
 
-    loop {
-        let tasks = fetch_tasks(&conn)?;
+    let matches = command!()
+        .subcommand(Command::new("list").about("List todo items"))
+        .subcommand(
+            Command::new("add")
+                .about("Add a new item")
+                .arg(arg!([name] "Name of the Task").required(true))
+                .arg(arg!([description] "Description of the Task").required(true))
+                .arg(
+                    arg!(-d --done "Mark the task done")
+                        .required(false)
+                        .action(ArgAction::SetTrue),
+                ),
+        )
+        .subcommand(
+            Command::new("remove").about("Remove an item").arg(
+                arg!([id] "Id of the item to be removed.")
+                    .value_parser(value_parser!(usize))
+                    .required(true),
+            ),
+        )
+        .subcommand(
+            Command::new("mark")
+                .about("Mark the status of a Task")
+                .arg(
+                    arg!([id] "Id of the item to be marked")
+                        .value_parser(value_parser!(usize))
+                        .required(true),
+                )
+                .arg(
+                    arg!([status] "Is the task done?")
+                        .value_parser(["true", "false"])
+                        .required(false),
+                ),
+        )
+        .get_matches();
 
-        print_menu();
-        let input: usize = text_io::read!();
-        match input {
-            99 => break,
-            1 => {
-                clear_screen();
-                print_tasks(tasks);
+    match matches.subcommand() {
+        Some(("list", _)) => {
+            print_tasks(fetch_tasks(&conn)?);
+        }
+        Some(("add", cmd)) => {
+            let name = cmd
+                .get_one::<String>("name")
+                .expect("Provided Name is invalid");
+            let description = cmd
+                .get_one::<String>("description")
+                .expect("Provided Description is invalid");
+
+            if name.trim() == "" {
+                println!("[!] Name of the task can't be empty, exiting!");
+                return Ok(());
             }
-            2 => {
-                clear_screen();
-                print_tasks(tasks);
-                let name = read_line("Name of the task> ");
-                let description = read_line("Description of the task> ");
-                add_task(
-                    &conn,
-                    Task {
-                        id: None,
-                        name,
-                        description,
-                        is_done: false,
-                    },
-                )?;
-            }
-            3 => {
-                clear_screen();
-                print_tasks(tasks);
-                let id = read_line("id> ").parse::<usize>().unwrap_or(0);
-                mark_complete(&conn, id, true)?;
-            }
-            4 => {
-                clear_screen();
-                print_tasks(tasks);
-                let id = read_line("id> ").parse::<usize>().unwrap_or(0);
-                delete_task(&conn, id)?;
-            }
-            _ => continue,
+            let is_done: bool = *cmd.get_one::<bool>("done").unwrap_or(&false);
+
+            let result = add_task(&conn, name.trim(), description.trim(), is_done);
+
+            handle_error(result);
+        }
+        Some(("remove", cmd)) => {
+            let id: usize = *cmd.get_one::<usize>("id").unwrap();
+
+            let result = delete_task(&conn, id);
+            handle_error(result);
+        }
+        Some(("mark", cmd)) => {
+            let id: usize = *cmd.get_one::<usize>("id").unwrap();
+
+            let mark: bool = cmd
+                .get_one::<String>("status")
+                .map_or(true, |s| s == "true");
+
+            let result = mark_complete(&conn, id, mark);
+            handle_error(result);
+        }
+        _ => {
+            println!("[?] No command found\n[?] Try running `--help` flag.");
         }
     }
 
