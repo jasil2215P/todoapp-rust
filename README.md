@@ -20,8 +20,7 @@ A simple command-line todo application written in Rust using:
 
 ## Requirements
 
-- Rust (tested with Rust 1.70+)  
-- SQLite installed on your machine (usually pre-installed on most systems)
+- Rust (tested with Rust 1.87.0)  
 
 ---
 
