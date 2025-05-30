@@ -101,7 +101,7 @@ pub fn run() -> Result<()> {
                 .about("Add a new item")
                 .alias("new")
                 .arg(arg!([name] "Name of the Task").required(true))
-                .arg(arg!([description] "Description of the Task").required(false))
+                .arg(arg!([description] "Description of the Task").required(true))
                 .arg(
                     arg!(-d --done "Mark the task done")
                         .required(false)

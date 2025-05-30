@@ -8,5 +8,4 @@ clap = { version = "4.5.39", features = ["cargo"] }
 prettytable = "0.10.0"
 rusqlite = "0.35.0"
 
-# Uncomment this line if you are facing link.exe (linker) issues during build.
 # rusqlite = { version = "", features = ["bundled"] }
