@@ -33,13 +33,17 @@ A simple command-line todo application written in Rust using:
    ```
 2. Build the project:
 
-```cargo build --release```
+   ```cargo build --release```
 
 3. Run the app with:
 
-```./target/release/todo_app```
+   ```./target/release/todo_app```
 Or,
-```cargo run -- <ARGS>```
+   ```cargo run -- <ARGS>```
 
+---
+   If you are facing build issues regarding the link.exe or your linker not being able to find the sqlite library.
+   Uncomment the last line in the Cargo.toml file and comment the other "rustqlite" line.
+---
 
 Feel free to open issues or submit PRs if you want to add features or improve the app.
